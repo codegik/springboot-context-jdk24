@@ -29,6 +29,7 @@ public class AddressController {
     @GetMapping("/{id}")
     public ResponseEntity<Address> getAddressById(@PathVariable Long id) {
         return addressService.getAddressById(id)
+                .map(ResponseEntity:ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
