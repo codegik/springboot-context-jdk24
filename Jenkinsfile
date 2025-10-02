@@ -2,36 +2,35 @@ pipeline {
     agent any
 
     environment {
-        JAVA_HOME = tool name: 'jdk-24', type: 'jdk'
-        PATH = "${JAVA_HOME}/bin:${env.PATH}"
+        WORKSPACE_DIR = '/workspace'
+        WORKSPACE_APP_DIR = '/workspace/apps/springboot-context-jdk24'
     }
 
     stages {
-        stage('Checkout') {
+        stage('All Steps') {
             steps {
-                checkout scm
-            }
-        }
-        stage('Build') {
-            steps {
-                sh './mvnw clean package'
-            }
-        }
-        stage('Test') {
-            steps {
-                sh './mvnw test'
-            }
-            post {
-                always {
-                    junit 'target/surefire-reports/*.xml'
+                dir("${env.WORKSPACE_APP_DIR}") {
+                    script {
+                        sh 'mvn clean install'
+                    }
                 }
             }
-        }
-        stage('Archive') {
-            steps {
-                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            post {
+                failure {
+                    dir("${env.WORKSPACE_DIR}") {
+                        script {
+                            def jobOutput = currentBuild.rawBuild.getLog(1000).join('\n')
+                            def cleanOutput = jobOutput.replaceAll(/\x1B\[[;0-9]*[a-zA-Z]/, '').replaceAll(/\[\[0;?[0-9;]*m/, '')
+
+                            writeFile file: '/tmp/job_output.txt', text: cleanOutput
+
+                            sh "echo 'Build failed. Calling agent to fix the issues...'"
+                            sh "chmod +x agent.py"
+                            sh "python agent.py ${WORKSPACE_APP_DIR} /tmp/job_output.txt"
+                        }
+                    }
+                }
             }
         }
     }
 }
-
